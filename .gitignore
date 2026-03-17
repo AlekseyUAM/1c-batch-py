@@ -1,0 +1,9 @@
+/tasks
+/logs
+/docs
+/tests
+/build
+/onec_batch
+/.claude
+*.egg-info
+.1c-devbase.json

@@ -1,0 +1,15 @@
+{
+  "platform_path": "/opt/1cv8/x86_64/8.3.27.1786/1cv8",
+
+  "connection": {
+    "type": "file",
+    "path": "/home/user/Documents/MyBase"
+  },
+
+  "user": "Администратор",
+  "password": "",
+
+  "cf_dir": "src/cf",
+  "cfe_dir": "src/cfe",
+  "log_dir": "logs"
+}

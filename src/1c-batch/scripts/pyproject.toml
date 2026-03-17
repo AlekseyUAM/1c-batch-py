@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "1c-batch"
+version = "0.1.0"
+description = "Кроссплатформенный Python-инструмент для пакетных операций с 1С:Предприятие 8"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.0",
+]
+
+[project.scripts]
+"1c-batch" = "onec_batch.cli:cli"
+
+[tool.setuptools]
+packages = ["onec_batch"]
+
+[tool.setuptools.package-dir]
+onec_batch = "."
