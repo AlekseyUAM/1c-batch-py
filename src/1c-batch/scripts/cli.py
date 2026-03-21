@@ -8,6 +8,22 @@ from .config import load_config as _load_config
 from .runner import run_batch, run_interactive
 
 
+def _quote(value: str) -> str:
+    """Заключение значения в кавычки с экранированием внутренних кавычек."""
+    escaped = value.replace('"', '""')
+    return f'"{escaped}"'
+
+
+def _arg(key: str, value: str | None = None) -> list[str]:
+    """Формирование аргумента 1С с кавычками для значения.
+
+    Если value не указан — возвращает только ключ (для флагов).
+    """
+    if value is None:
+        return [key]
+    return [key, _quote(value)]
+
+
 @click.group()
 @click.pass_context
 def cli(ctx: click.Context) -> None:
@@ -27,7 +43,7 @@ def run_enterprise(ctx: click.Context, epf: str | None) -> None:
     cfg = ctx.obj["config"]
     extra: list[str] = []
     if epf:
-        extra.append(f"/Execute{epf}")
+        extra.extend(_arg("/Execute", epf))
     extra.extend(["/DisableStartupDialogs", "/DisableStartupMessages"])
     run_interactive(cfg, "ENTERPRISE", extra)
 
@@ -52,9 +68,9 @@ def run_designer(ctx: click.Context) -> None:
 def dump_config(ctx: click.Context, directory: str, update: bool, extension: str | None, all_extensions: bool, fmt: str | None) -> None:
     """Выгрузка конфигурации в XML."""
     cfg = ctx.obj["config"]
-    args = [f"/DumpConfigToFiles{directory}"]
+    args = _arg("/DumpConfigToFiles", directory)
     if extension:
-        args.append(f"-Extension{extension}")
+        args.extend(_arg("-Extension", extension))
     if all_extensions:
         args.append("-AllExtensions")
     if update:
@@ -77,13 +93,13 @@ def load_config(ctx: click.Context, directory: str, files: str | None, list_file
                 fmt: str | None, partial: bool, extension: str | None, skip_db_update: bool) -> None:
     """Загрузка конфигурации из XML."""
     cfg = ctx.obj["config"]
-    args = [f"/LoadConfigFromFiles{directory}"]
+    args = _arg("/LoadConfigFromFiles", directory)
     if extension:
-        args.append(f"-Extension{extension}")
+        args.extend(_arg("-Extension", extension))
     if files:
-        args.append(f"-files{files}")
+        args.extend(_arg("-files", files))
     if list_file:
-        args.append(f"-listFile{list_file}")
+        args.extend(_arg("-listFile", list_file))
     if fmt:
         args.extend(["-Format", fmt])
     if partial:
@@ -92,7 +108,7 @@ def load_config(ctx: click.Context, directory: str, files: str | None, list_file
     if not skip_db_update:
         args.append("/UpdateDBCfg")
         if extension:
-            args.append(f"-Extension{extension}")
+            args.extend(_arg("-Extension", extension))
     sys.exit(run_batch(cfg, "load-config", args))
 
 
@@ -103,9 +119,9 @@ def load_config(ctx: click.Context, directory: str, files: str | None, list_file
 def dump_cfg(ctx: click.Context, filepath: str, extension: str | None) -> None:
     """Сохранение конфигурации в файл .cf."""
     cfg = ctx.obj["config"]
-    args = [f"/DumpCfg{filepath}"]
+    args = _arg("/DumpCfg", filepath)
     if extension:
-        args.append(f"-Extension{extension}")
+        args.extend(_arg("-Extension", extension))
     sys.exit(run_batch(cfg, "dump-cfg", args))
 
 
@@ -116,9 +132,9 @@ def dump_cfg(ctx: click.Context, filepath: str, extension: str | None) -> None:
 def load_cfg(ctx: click.Context, filepath: str, extension: str | None) -> None:
     """Загрузка конфигурации из файла .cf."""
     cfg = ctx.obj["config"]
-    args = [f"/LoadCfg{filepath}"]
+    args = _arg("/LoadCfg", filepath)
     if extension:
-        args.append(f"-Extension{extension}")
+        args.extend(_arg("-Extension", extension))
     sys.exit(run_batch(cfg, "load-cfg", args))
 
 
@@ -136,7 +152,7 @@ def update_db_cfg(ctx: click.Context, dynamic: str | None, server: bool, extensi
     if server:
         args.append("-Server")
     if extension:
-        args.append(f"-Extension{extension}")
+        args.extend(_arg("-Extension", extension))
     sys.exit(run_batch(cfg, "update-db-cfg", args))
 
 
@@ -151,7 +167,7 @@ def update_db_cfg(ctx: click.Context, dynamic: str | None, server: bool, extensi
 def dump_extension(ctx: click.Context, directory: str, name: str, update: bool, fmt: str | None) -> None:
     """Выгрузка расширения в XML."""
     cfg = ctx.obj["config"]
-    args = [f"/DumpConfigToFiles{directory}", f"-Extension{name}"]
+    args = _arg("/DumpConfigToFiles", directory) + _arg("-Extension", name)
     if update:
         args.extend(["-update", "-force"])
     if fmt:
@@ -167,13 +183,10 @@ def dump_extension(ctx: click.Context, directory: str, name: str, update: bool, 
 def load_extension(ctx: click.Context, directory: str, name: str, skip_db_update: bool) -> None:
     """Загрузка расширения из XML."""
     cfg = ctx.obj["config"]
-    args = [
-        f"/LoadConfigFromFiles{directory}",
-        f"-Extension{name}",
-        "-updateConfigDumpInfo",
-    ]
+    args = _arg("/LoadConfigFromFiles", directory) + _arg("-Extension", name) + ["-updateConfigDumpInfo"]
     if not skip_db_update:
-        args.extend(["/UpdateDBCfg", f"-Extension{name}"])
+        args.append("/UpdateDBCfg")
+        args.extend(_arg("-Extension", name))
     sys.exit(run_batch(cfg, "load-extension", args))
 
 
@@ -184,7 +197,7 @@ def load_extension(ctx: click.Context, directory: str, name: str, skip_db_update
 def dump_cfg_extension(ctx: click.Context, filepath: str, name: str) -> None:
     """Сохранение расширения в .cfe."""
     cfg = ctx.obj["config"]
-    args = [f"/DumpCfg{filepath}", f"-Extension{name}"]
+    args = _arg("/DumpCfg", filepath) + _arg("-Extension", name)
     sys.exit(run_batch(cfg, "dump-cfg-extension", args))
 
 
@@ -195,7 +208,7 @@ def dump_cfg_extension(ctx: click.Context, filepath: str, name: str) -> None:
 def load_cfg_extension(ctx: click.Context, filepath: str, name: str) -> None:
     """Загрузка расширения из .cfe."""
     cfg = ctx.obj["config"]
-    args = [f"/LoadCfg{filepath}", f"-Extension{name}"]
+    args = _arg("/LoadCfg", filepath) + _arg("-Extension", name)
     sys.exit(run_batch(cfg, "load-cfg-extension", args))
 
 
@@ -208,7 +221,7 @@ def delete_extension(ctx: click.Context, name: str | None, all_ext: bool) -> Non
     cfg = ctx.obj["config"]
     args = ["/DeleteCfg"]
     if name:
-        args.append(f"-Extension{name}")
+        args.extend(_arg("-Extension", name))
     if all_ext:
         args.append("-AllExtensions")
     sys.exit(run_batch(cfg, "delete-extension", args))
@@ -233,7 +246,7 @@ def list_extensions(ctx: click.Context) -> None:
 def dump_epf(ctx: click.Context, xml_dir: str, epf_file: str, fmt: str | None) -> None:
     """Разборка обработки/отчёта в XML."""
     cfg = ctx.obj["config"]
-    args = [f"/DumpExternalDataProcessorOrReportToFiles{xml_dir}", epf_file]
+    args = _arg("/DumpExternalDataProcessorOrReportToFiles", xml_dir) + [_quote(epf_file)]
     if fmt:
         args.extend(["-Format", fmt])
     sys.exit(run_batch(cfg, "dump-epf", args))
@@ -246,7 +259,7 @@ def dump_epf(ctx: click.Context, xml_dir: str, epf_file: str, fmt: str | None) -
 def build_epf(ctx: click.Context, xml_dir: str, epf_file: str) -> None:
     """Сборка обработки/отчёта из XML."""
     cfg = ctx.obj["config"]
-    args = [f"/LoadExternalDataProcessorOrReportFromFiles{xml_dir}", epf_file]
+    args = _arg("/LoadExternalDataProcessorOrReportFromFiles", xml_dir) + [_quote(epf_file)]
     sys.exit(run_batch(cfg, "build-epf", args))
 
 
@@ -258,7 +271,7 @@ def build_epf(ctx: click.Context, xml_dir: str, epf_file: str) -> None:
 def dump_ib(ctx: click.Context, filepath: str) -> None:
     """Выгрузка ИБ в .dt."""
     cfg = ctx.obj["config"]
-    args = [f"/DumpIB{filepath}"]
+    args = _arg("/DumpIB", filepath)
     sys.exit(run_batch(cfg, "dump-ib", args))
 
 
@@ -269,9 +282,9 @@ def dump_ib(ctx: click.Context, filepath: str) -> None:
 def restore_ib(ctx: click.Context, filepath: str, jobs_count: int | None) -> None:
     """Загрузка ИБ из .dt."""
     cfg = ctx.obj["config"]
-    args = [f"/RestoreIB{filepath}"]
+    args = _arg("/RestoreIB", filepath)
     if jobs_count is not None:
-        args.append(f"-JobsCount{jobs_count}")
+        args.extend(_arg("-JobsCount", str(jobs_count)))
     sys.exit(run_batch(cfg, "restore-ib", args))
 
 
@@ -289,9 +302,9 @@ def create_infobase(ctx: click.Context, path: str, add_to_list: str | None, use_
     import subprocess
     cmd = [cfg.platform_path, "CREATEINFOBASE", f'File="{path}"']
     if add_to_list:
-        cmd.append(f"/AddToList{add_to_list}")
+        cmd.extend(_arg("/AddToList", add_to_list))
     if use_template:
-        cmd.append(f"/UseTemplate{use_template}")
+        cmd.extend(_arg("/UseTemplate", use_template))
     click.echo(f"Запуск: {' '.join(cmd)}")
     result = subprocess.run(cmd)
     sys.exit(result.returncode)
@@ -355,7 +368,7 @@ def check_config(ctx: click.Context, config_log_integrity: bool, incorrect_refer
     if server:
         args.append("-Server")
     if extension:
-        args.append(f"-Extension{extension}")
+        args.extend(_arg("-Extension", extension))
     if all_extensions:
         args.append("-AllExtensions")
     sys.exit(run_batch(cfg, "check-config", args))
@@ -376,7 +389,7 @@ def check_modules(ctx: click.Context, thin_client: bool, server: bool, extension
     if server:
         args.append("-Server")
     if extension:
-        args.append(f"-Extension{extension}")
+        args.extend(_arg("-Extension", extension))
     if all_extensions:
         args.append("-AllExtensions")
     sys.exit(run_batch(cfg, "check-modules", args))
@@ -392,9 +405,9 @@ def check_modules(ctx: click.Context, thin_client: bool, server: bool, extension
 def merge_cfg(ctx: click.Context, filepath: str, settings: str | None, force: bool) -> None:
     """Объединение конфигураций."""
     cfg = ctx.obj["config"]
-    args = [f"/MergeCfg{filepath}"]
+    args = _arg("/MergeCfg", filepath)
     if settings:
-        args.append(f"-Settings{settings}")
+        args.extend(_arg("-Settings", settings))
     if force:
         args.append("-force")
     sys.exit(run_batch(cfg, "merge-cfg", args))
@@ -410,11 +423,11 @@ def compare_cfg(ctx: click.Context, first_type: str, second_type: str,
                 report_format: str | None, report_file: str | None) -> None:
     """Сравнение конфигураций."""
     cfg = ctx.obj["config"]
-    args = ["/CompareCfg", f"-FirstConfigurationType{first_type}", f"-SecondConfigurationType{second_type}"]
+    args = ["/CompareCfg"] + _arg("-FirstConfigurationType", first_type) + _arg("-SecondConfigurationType", second_type)
     if report_format:
-        args.append(f"-ReportFormat{report_format}")
+        args.extend(_arg("-ReportFormat", report_format))
     if report_file:
-        args.append(f"-ReportFile{report_file}")
+        args.extend(_arg("-ReportFile", report_file))
     sys.exit(run_batch(cfg, "compare-cfg", args))
 
 
@@ -435,7 +448,7 @@ def dump_config_files(ctx: click.Context, directory: str, module: bool, template
                       extension: str | None) -> None:
     """Выгрузка свойств конфигурации (модули, макеты, права)."""
     cfg = ctx.obj["config"]
-    args = [f"/DumpConfigFiles{directory}"]
+    args = _arg("/DumpConfigFiles", directory)
     if module:
         args.append("-Module")
     if template:
@@ -449,7 +462,7 @@ def dump_config_files(ctx: click.Context, directory: str, module: bool, template
     if right:
         args.append("-Right")
     if extension:
-        args.append(f"-Extension{extension}")
+        args.extend(_arg("-Extension", extension))
     sys.exit(run_batch(cfg, "dump-config-files", args))
 
 
@@ -468,7 +481,7 @@ def load_config_files(ctx: click.Context, directory: str, module: bool, template
                       extension: str | None) -> None:
     """Загрузка свойств конфигурации."""
     cfg = ctx.obj["config"]
-    args = [f"/LoadConfigFiles{directory}"]
+    args = _arg("/LoadConfigFiles", directory)
     if module:
         args.append("-Module")
     if template:
@@ -482,7 +495,7 @@ def load_config_files(ctx: click.Context, directory: str, module: bool, template
     if right:
         args.append("-Right")
     if extension:
-        args.append(f"-Extension{extension}")
+        args.extend(_arg("-Extension", extension))
     sys.exit(run_batch(cfg, "load-config-files", args))
 
 
@@ -494,5 +507,5 @@ def load_config_files(ctx: click.Context, directory: str, module: bool, template
 def reduce_event_log(ctx: click.Context, date: str) -> None:
     """Сокращение журнала регистрации. DATE — дата в формате YYYYMMDD."""
     cfg = ctx.obj["config"]
-    args = [f"/ReduceEventLogSize{date}"]
+    args = _arg("/ReduceEventLogSize", date)
     sys.exit(run_batch(cfg, "reduce-event-log", args))

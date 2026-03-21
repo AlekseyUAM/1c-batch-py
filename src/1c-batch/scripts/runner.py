@@ -10,20 +10,27 @@ import click
 from .config import Config
 
 
+def _quote_value(value: str) -> str:
+    """Заключение значения в кавычки с экранированием внутренних кавычек."""
+    escaped = value.replace('"', '""')
+    return f'"{escaped}"'
+
+
 def build_connection_args(cfg: Config) -> list[str]:
     """Формирование аргументов подключения к ИБ."""
     if cfg.connection_type == "server":
-        return [f"/S{cfg.server}\\{cfg.base}"]
-    return [f"/F{cfg.connection_path}"]
+        conn_str = f"{cfg.server}\\{cfg.base}"
+        return ["/S", _quote_value(conn_str)]
+    return ["/F", _quote_value(cfg.connection_path)]
 
 
 def build_auth_args(cfg: Config) -> list[str]:
     """Формирование аргументов аутентификации."""
     args: list[str] = []
     if cfg.user:
-        args.append(f"/N{cfg.user}")
+        args.extend(["/N", _quote_value(cfg.user)])
     if cfg.password:
-        args.append(f"/P{cfg.password}")
+        args.extend(["/P", _quote_value(cfg.password)])
     return args
 
 
@@ -97,7 +104,7 @@ def run_batch(cfg: Config, command_name: str, extra_args: list[str]) -> int:
 
     cmd = build_base_command(cfg, "DESIGNER")
     cmd.append("/DisableStartupDialogs")
-    cmd.append(f"/Out{log_path}")
+    cmd.extend(["/Out", _quote_value(str(log_path))])
     cmd.extend(extra_args)
 
     click.echo(f"Запуск: {' '.join(cmd)}")
