@@ -5,23 +5,19 @@ import sys
 import click
 
 from .config import load_config as _load_config
-from .runner import run_batch, run_interactive
-
-
-def _quote(value: str) -> str:
-    """Заключение значения в кавычки с экранированием внутренних кавычек."""
-    escaped = value.replace('"', '""')
-    return f'"{escaped}"'
+from .runner import run_batch, run_create_infobase, run_interactive
 
 
 def _arg(key: str, value: str | None = None) -> list[str]:
-    """Формирование аргумента 1С с кавычками для значения.
+    """Формирование аргумента 1С: ключ и значение как отдельные argv-элементы.
 
+    Значения НЕ кавычатся — subprocess.run передаёт список напрямую через
+    execvp (POSIX) или list2cmdline (Windows), и квотинг делает ОС.
     Если value не указан — возвращает только ключ (для флагов).
     """
     if value is None:
         return [key]
-    return [key, _quote(value)]
+    return [key, value]
 
 
 @click.group()
@@ -296,18 +292,12 @@ def restore_ib(ctx: click.Context, filepath: str, jobs_count: int | None) -> Non
 def create_infobase(ctx: click.Context, path: str, add_to_list: str | None, use_template: str | None) -> None:
     """Создание информационной базы."""
     cfg = ctx.obj["config"]
-    if not cfg.platform_path:
-        click.echo("Ошибка: Не задан путь к платформе 1С.", err=True)
-        sys.exit(1)
-    import subprocess
-    cmd = [cfg.platform_path, "CREATEINFOBASE", f'File="{path}"']
+    extra: list[str] = []
     if add_to_list:
-        cmd.extend(_arg("/AddToList", add_to_list))
+        extra.extend(_arg("/AddToList", add_to_list))
     if use_template:
-        cmd.extend(_arg("/UseTemplate", use_template))
-    click.echo(f"Запуск: {' '.join(cmd)}")
-    result = subprocess.run(cmd)
-    sys.exit(result.returncode)
+        extra.extend(_arg("/UseTemplate", use_template))
+    sys.exit(run_create_infobase(cfg, path, extra))
 
 
 @cli.command()

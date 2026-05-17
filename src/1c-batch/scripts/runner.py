@@ -1,5 +1,6 @@
 """Запуск процессов 1cv8 — интерактивный и пакетный режимы."""
 
+import shlex
 import subprocess
 import sys
 from datetime import datetime
@@ -10,27 +11,24 @@ import click
 from .config import Config
 
 
-def _quote_value(value: str) -> str:
-    """Заключение значения в кавычки с экранированием внутренних кавычек."""
-    escaped = value.replace('"', '""')
-    return f'"{escaped}"'
-
-
 def build_connection_args(cfg: Config) -> list[str]:
-    """Формирование аргументов подключения к ИБ."""
+    """Формирование аргументов подключения к ИБ.
+
+    Значения передаются отдельными argv-элементами без литеральных кавычек —
+    их добавит шелл/list2cmdline при необходимости. 1С получает чистое значение.
+    """
     if cfg.connection_type == "server":
-        conn_str = f"{cfg.server}/{cfg.base}"
-        return ["/S", _quote_value(conn_str)]
-    return ["/F", _quote_value(cfg.connection_path)]
+        return ["/S", f"{cfg.server}/{cfg.base}"]
+    return ["/F", cfg.connection_path]
 
 
 def build_auth_args(cfg: Config) -> list[str]:
     """Формирование аргументов аутентификации."""
     args: list[str] = []
     if cfg.user:
-        args.extend(["/N", _quote_value(cfg.user)])
+        args.extend(["/N", cfg.user])
     if cfg.password:
-        args.extend(["/P", _quote_value(cfg.password)])
+        args.extend(["/P", cfg.password])
     return args
 
 
@@ -69,6 +67,11 @@ def read_log(log_path: Path) -> str | None:
         return None
 
 
+def _echo_command(cmd: list[str]) -> None:
+    """Печать команды для пользователя — кавычит значения только там, где это нужно."""
+    click.echo(f"Запуск: {shlex.join(cmd)}")
+
+
 def run_interactive(cfg: Config, mode: str, extra_args: list[str] | None = None) -> None:
     """Запуск 1С в интерактивном режиме (без ожидания завершения).
 
@@ -84,7 +87,7 @@ def run_interactive(cfg: Config, mode: str, extra_args: list[str] | None = None)
     if extra_args:
         cmd.extend(extra_args)
 
-    click.echo(f"Запуск: {' '.join(cmd)}")
+    _echo_command(cmd)
     subprocess.Popen(cmd)
 
 
@@ -104,10 +107,10 @@ def run_batch(cfg: Config, command_name: str, extra_args: list[str]) -> int:
 
     cmd = build_base_command(cfg, "DESIGNER")
     cmd.append("/DisableStartupDialogs")
-    cmd.extend(["/Out", _quote_value(str(log_path))])
+    cmd.extend(["/Out", str(log_path)])
     cmd.extend(extra_args)
 
-    click.echo(f"Запуск: {' '.join(cmd)}")
+    _echo_command(cmd)
     result = subprocess.run(cmd)
 
     # Чтение и вывод содержимого лога
@@ -125,3 +128,24 @@ def run_batch(cfg: Config, command_name: str, extra_args: list[str]) -> int:
             click.echo(log_content)
 
     return result.returncode
+
+
+def run_create_infobase(cfg: Config, path: str, extra_args: list[str] | None = None) -> int:
+    """Создание информационной базы.
+
+    Использует особый синтаксис строки соединения `File="..."` — это **одно**
+    argv-значение, кавычки здесь часть синтаксиса 1С, а не оформление.
+    """
+    if not cfg.platform_path:
+        click.echo("Ошибка: Не задан путь к платформе 1С (platform_path).", err=True)
+        return 1
+    if '"' in path:
+        click.echo('Ошибка: путь к базе не может содержать символ "', err=True)
+        return 1
+
+    cmd = [cfg.platform_path, "CREATEINFOBASE", f'File="{path}"']
+    if extra_args:
+        cmd.extend(extra_args)
+
+    _echo_command(cmd)
+    return subprocess.run(cmd).returncode

@@ -2,8 +2,7 @@
 
 import json
 import platform
-import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 import click
@@ -65,12 +64,6 @@ class Config:
                           "Допустимые значения: file, server.")
 
         return errors
-
-    def connection_string(self) -> str:
-        """Строка подключения для отображения."""
-        if self.connection_type == "server":
-            return f"/S{self.server}/{self.base}"
-        return f"/F{self.connection_path}"
 
 
 def find_platform_binary() -> str | None:
