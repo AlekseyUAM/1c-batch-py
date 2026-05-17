@@ -69,7 +69,7 @@ class Config:
     def connection_string(self) -> str:
         """Строка подключения для отображения."""
         if self.connection_type == "server":
-            return f"/S{self.server}\\{self.base}"
+            return f"/S{self.server}/{self.base}"
         return f"/F{self.connection_path}"
 
 

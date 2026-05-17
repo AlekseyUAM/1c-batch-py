@@ -19,7 +19,7 @@ def _quote_value(value: str) -> str:
 def build_connection_args(cfg: Config) -> list[str]:
     """Формирование аргументов подключения к ИБ."""
     if cfg.connection_type == "server":
-        conn_str = f"{cfg.server}\\{cfg.base}"
+        conn_str = f"{cfg.server}/{cfg.base}"
         return ["/S", _quote_value(conn_str)]
     return ["/F", _quote_value(cfg.connection_path)]
 
