@@ -103,8 +103,6 @@ def load_config(ctx: click.Context, directory: str, files: str | None, list_file
     args.append("-updateConfigDumpInfo")
     if not skip_db_update:
         args.append("/UpdateDBCfg")
-        if extension:
-            args.extend(_arg("-Extension", extension))
     sys.exit(run_batch(cfg, "load-config", args))
 
 
@@ -182,7 +180,6 @@ def load_extension(ctx: click.Context, directory: str, name: str, skip_db_update
     args = _arg("/LoadConfigFromFiles", directory) + _arg("-Extension", name) + ["-updateConfigDumpInfo"]
     if not skip_db_update:
         args.append("/UpdateDBCfg")
-        args.extend(_arg("-Extension", name))
     sys.exit(run_batch(cfg, "load-extension", args))
 
 
@@ -242,7 +239,7 @@ def list_extensions(ctx: click.Context) -> None:
 def dump_epf(ctx: click.Context, xml_dir: str, epf_file: str, fmt: str | None) -> None:
     """Разборка обработки/отчёта в XML."""
     cfg = ctx.obj["config"]
-    args = _arg("/DumpExternalDataProcessorOrReportToFiles", xml_dir) + [_quote(epf_file)]
+    args = _arg("/DumpExternalDataProcessorOrReportToFiles", xml_dir) + [epf_file]
     if fmt:
         args.extend(["-Format", fmt])
     sys.exit(run_batch(cfg, "dump-epf", args))
@@ -255,7 +252,7 @@ def dump_epf(ctx: click.Context, xml_dir: str, epf_file: str, fmt: str | None) -
 def build_epf(ctx: click.Context, xml_dir: str, epf_file: str) -> None:
     """Сборка обработки/отчёта из XML."""
     cfg = ctx.obj["config"]
-    args = _arg("/LoadExternalDataProcessorOrReportFromFiles", xml_dir) + [_quote(epf_file)]
+    args = _arg("/LoadExternalDataProcessorOrReportFromFiles", xml_dir) + [epf_file]
     sys.exit(run_batch(cfg, "build-epf", args))
 
 
